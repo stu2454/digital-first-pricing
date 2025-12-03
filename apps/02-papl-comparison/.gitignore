@@ -1,0 +1,60 @@
+# ---------------------------
+# Python
+# ---------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments (if someone creates one locally)
+venv/
+env/
+.venv/
+
+# ---------------------------
+# Streamlit artefacts
+# ---------------------------
+.streamlit/secrets.toml
+.streamlit/state.json
+
+# ---------------------------
+# App-level secrets
+# ---------------------------
+.env
+.env.*
+*.env
+
+# ---------------------------
+# Local-only data
+# ---------------------------
+data/
+logs/
+*.log
+tmp/
+temp/
+
+# ---------------------------
+# Build / packaging noise
+# ---------------------------
+dist/
+build/
+*.egg-info/
+
+# ---------------------------
+# OS junk
+# ---------------------------
+.DS_Store
+Thumbs.db
+
+# ---------------------------
+# IDEs
+# ---------------------------
+.vscode/
+.idea/
+
+# ---------------------------
+# Docker (local variants)
+# ---------------------------
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.dev.yml

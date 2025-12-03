@@ -1,0 +1,90 @@
+# ---------------------------
+# Core Python ignores
+# ---------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Jupyter (just in case)
+.ipynb_checkpoints/
+
+# ---------------------------
+# OS-specific junk
+# ---------------------------
+.DS_Store
+Thumbs.db
+
+# ---------------------------
+# Editor / IDE files
+# ---------------------------
+.vscode/
+.idea/
+*.code-workspace
+
+# ---------------------------
+# Project-wide secrets
+# ---------------------------
+.env
+.env.*
+*.env
+**/.env
+
+# ---------------------------
+# Build artefacts
+# ---------------------------
+dist/
+build/
+*.egg-info/
+*.egg
+
+# ---------------------------
+# Docker artefacts
+# ---------------------------
+**/docker-compose.override.yml
+**/docker-compose.local.yml
+**/docker-compose.dev.yml
+
+# ---------------------------
+# Local scratch directories
+# ---------------------------
+tmp/
+temp/
+scratch/
+logs/
+*.log
+
+# ---------------------------
+# Cached data (safe to regenerate)
+# ---------------------------
+.cache/
+pytest_cache/
+.mypy_cache/
+__pycache__/
+
+# ---------------------------
+# Node / frontend (future-proofing)
+# ---------------------------
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# ---------------------------
+# Shared layer safety
+# ---------------------------
+shared/__pycache__/
+shared/*.pyc
+
+# ---------------------------
+# Output directories
+# (Your tools write JSON/CSV to S3, not locally)
+# ---------------------------
+**/output/
+**/exports/
+**/reports/

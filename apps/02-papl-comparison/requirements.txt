@@ -1,0 +1,13 @@
+# App 2: PAPL Comparison Tool - Requirements
+
+# Inherit shared dependencies
+#-r ../../shared/requirements.txt
+
+# Streamlit framework
+streamlit==1.39.0
+
+# Data visualization
+plotly==5.24.1
+
+# Additional utilities
+python-dateutil==2.9.0
