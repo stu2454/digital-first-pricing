@@ -1,42 +1,59 @@
-# ─────────────────────────────────────────────
-# 1. Base image
-# ─────────────────────────────────────────────
+# ---------------------------------------------------------
+# 1. Base Image
+# ---------------------------------------------------------
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# Prevent Python writing .pyc files
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
+# ---------------------------------------------------------
+# 2. System Dependencies
+# ---------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------
+# 3. Create working directory
+# NOTE: Render resolves this relative to repository root.
+# ---------------------------------------------------------
 WORKDIR /app
 
-# Install system packages (needed for python-docx, etc.)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    gcc \
-    libxml2-dev \
-    libxslt1-dev \
-    curl && \
-    rm -rf /var/lib/apt/lists/*
-
-# ─────────────────────────────────────────────
-# 2. Copy shared + app code
-# ─────────────────────────────────────────────
-COPY shared /app/shared
+# ---------------------------------------------------------
+# 4. Copy app folder into container
+# ---------------------------------------------------------
 COPY apps/02-papl-comparison /app
 
-# ─────────────────────────────────────────────
-# 3. Install all requirements
-# ─────────────────────────────────────────────
-# global requirements in project root
-COPY requirements.txt /app/requirements.txt
-RUN pip install --upgrade pip && \
-    pip install -r /app/requirements.txt
+# ---------------------------------------------------------
+# 5. Copy shared modules
+# (Render's build context is repo root → so this path works)
+# ---------------------------------------------------------
+COPY shared /app/shared
 
-# app-specific requirements
-RUN if [ -f "/app/requirements.txt" ]; then pip install -r /app/requirements.txt; fi
+# ---------------------------------------------------------
+# 6. Install Python Dependencies
+# ---------------------------------------------------------
 
-# ─────────────────────────────────────────────
-# 4. Expose and run app
-# ─────────────────────────────────────────────
+# Upgrade pip first
+RUN pip install --upgrade pip
+
+# Install app dependencies
+RUN pip install -r /app/requirements.txt
+
+# Install shared dependencies
+RUN pip install -r /app/shared/requirements.txt
+
+# ---------------------------------------------------------
+# 7. Streamlit environment config
+# ---------------------------------------------------------
+ENV STREAMLIT_SERVER_HEADLESS=true
+ENV STREAMLIT_SERVER_PORT=8501
+ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+# ---------------------------------------------------------
+# 8. Start Application
+# ---------------------------------------------------------
 EXPOSE 8501
-
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "app.py"]
