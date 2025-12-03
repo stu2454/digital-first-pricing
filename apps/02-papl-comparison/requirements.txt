@@ -11,3 +11,12 @@ plotly==5.24.1
 
 # Additional utilities
 python-dateutil==2.9.0
+
+import boto3
+import botocore
+
+python-docx
+python-dotenv
+pandas
+
+
