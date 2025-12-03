@@ -3,49 +3,48 @@
 # ───────────────────────────────────────────────
 FROM python:3.11-slim
 
-# Prevent Python from buffering stdout/stderr
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
 
 # ───────────────────────────────────────────────
-# System Dependencies
+# Install system dependencies
 # ───────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    libmagic1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # ───────────────────────────────────────────────
-# Set working directory (NOTE: Render expects this)
+# Copy application code (App 2)
 # ───────────────────────────────────────────────
-WORKDIR /app
+COPY . /app
 
-# Copy APP 2 files
-COPY app.py /app/app.py
-COPY requirements.txt /app/requirements.txt
-
-# Copy shared library
+# ───────────────────────────────────────────────
+# Copy shared module (from root directory)
+# Render automatically includes the ENTIRE repo
+# ───────────────────────────────────────────────
 COPY ../../shared /app/shared
 
 # ───────────────────────────────────────────────
 # Install Python dependencies
 # ───────────────────────────────────────────────
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt \
+    && pip install --no-cache-dir -r /app/shared/requirements.txt
 
 # ───────────────────────────────────────────────
-# Streamlit environment (Render requirement)
+# Streamlit config
 # ───────────────────────────────────────────────
-ENV STREAMLIT_SERVER_PORT=10000 \
+ENV STREAMLIT_SERVER_PORT=8501 \
     STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+    STREAMLIT_SERVER_HEADLESS=true \
     PYTHONPATH="/app:/app/shared"
 
-# ───────────────────────────────────────────────
-# Expose Render port
-# ───────────────────────────────────────────────
-EXPOSE 10000
+EXPOSE 8501
 
 # ───────────────────────────────────────────────
-# Run Streamlit app
+# Run the app
 # ───────────────────────────────────────────────
-CMD ["streamlit", "run", "/app/app.py"]
+CMD ["streamlit", "run", "app.py"]
