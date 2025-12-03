@@ -19,6 +19,9 @@ COPY shared /app/shared
 # Copy App 2 code (from repo root)
 COPY apps/02-papl-comparison /app
 
+COPY apps/02-papl-comparison/requirements.txt /app/requirements.txt
+
+
 # Install dependencies for App 2
 RUN pip install --no-cache-dir -r requirements.txt
 
