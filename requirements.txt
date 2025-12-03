@@ -1,0 +1,8 @@
+# global deps
+boto3
+python-dotenv
+pandas
+streamlit
+
+# optional for RAG later
+requests
