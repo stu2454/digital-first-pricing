@@ -6,3 +6,11 @@ streamlit
 
 # optional for RAG later
 requests
+
+python-docx
+
+numpy
+fuzzywuzzy
+python-Levenshtein
+Pillow
+

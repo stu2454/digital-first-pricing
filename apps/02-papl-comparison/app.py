@@ -387,31 +387,29 @@ with tab2:
         with col1:
             st.metric(
                 "Pricing Changes",
-                results['pricing_changes']['summary']['prices_changed'],
-                delta=f"+{results['pricing_changes']['summary']['items_added']} items"
+                results['price_changes']['count'],
+                delta=f"↑{results['price_changes']['summary']['increases']} ↓{results['price_changes']['summary']['decreases']}"
             )
         
         with col2:
             st.metric(
                 "Rule Changes",
-                results['rule_changes']['summary']['rules_added'] + 
-                results['rule_changes']['summary']['rules_removed'] +
-                results['rule_changes']['summary']['rules_modified'],
-                delta=f"{results['rule_changes']['summary']['high_priority_changes']} high priority"
+                results['summary']['total_rule_changes'],
+                delta=f"+{results['summary']['rules_added']} -{results['summary']['rules_removed']}"
             )
         
         with col3:
             st.metric(
                 "Guidance Changes",
-                results['guidance_changes']['summary']['sections_modified'],
-                delta=f"{results['guidance_changes']['summary']['word_count_change']:+d} words"
+                results['summary']['sections_modified'],
+                delta=f"+{results['summary']['guidance_added']} -{results['summary']['guidance_removed']}"
             )
         
         with col4:
             st.metric(
                 "Table Changes",
-                results['table_structure_changes']['summary']['structure_changed'],
-                delta=f"{results['table_structure_changes']['summary']['content_changed']} content"
+                results['summary']['tables_modified'],
+                delta=f"+{results['summary']['tables_added']} -{results['summary']['tables_removed']}"
             )
         
         st.markdown("---")
@@ -419,65 +417,194 @@ with tab2:
         # Detailed results
         if compare_pricing:
             with st.expander("💰 Pricing Changes", expanded=True):
-                pricing = results['pricing_changes']
+                pricing = results['price_changes']
                 
                 st.markdown(f"""
                 **Summary:**
-                - Tables Modified: {pricing['summary']['tables_modified']}
-                - Items Added: {pricing['summary']['items_added']}
-                - Items Removed: {pricing['summary']['items_removed']}
-                - Prices Changed: {pricing['summary']['prices_changed']}
+                - Total Price Changes: {pricing['summary']['total_changes']}
+                - Price Increases: {pricing['summary']['increases']}
+                - Price Decreases: {pricing['summary']['decreases']}
+                - Prices Changed: {pricing['count']}
                 """)
-                
-                # Show price changes with locations
-                for detail in pricing['details']:
-                    if detail['type'] == 'table_modified' and 'changes' in detail:
-                        st.subheader(f"Table {detail['table_index'] + 1}")
-                        
-                        changes = detail['changes']
-                        
-                        # Price changes
-                        if changes.get('prices_changed'):
-                            st.markdown("#### 📈 Price Changes")
-                            for change in changes['prices_changed'][:20]:
-                                loc_display = format_location(change.get('new_location', {}))
-                                loc_str = f" ({loc_display})" if loc_display else ""
-                                
-                                st.warning(f"""
-**{change['item_name']}{loc_str}**  
-{change['old_price']} → {change['new_price']} ({change['change']['absolute']}, {change['change']['percentage']})
-""")
-                        
-                        # Added items
-                        if changes.get('added'):
-                            st.markdown("#### ✅ Added Items")
-                            for item in changes['added'][:10]:
-                                loc_display = format_location(item.get('location', {}))
-                                loc_str = f" ({loc_display})" if loc_display else ""
-                                st.success(f"**{item['item_name']}{loc_str}**: {item['price']}")
-                        
-                        # Removed items
-                        if changes.get('removed'):
-                            st.markdown("#### ❌ Removed Items")
-                            for item in changes['removed'][:10]:
-                                loc_display = format_location(item.get('location', {}))
-                                loc_str = f" ({loc_display})" if loc_display else ""
-                                st.error(f"**{item['item_name']}{loc_str}**: {item['price']}")
         
-        if compare_rules:
+        # =============================================================================
+        # DEBUG: Price Detection Analysis  
+        # =============================================================================
+        if hasattr(st.session_state, 'old_parsed') and hasattr(st.session_state, 'new_parsed'):
+            with st.expander("🔍 DEBUG: Price Detection Analysis", expanded=False):
+                st.markdown("### 📊 Price Detection Summary")
+                price_data = results.get('price_changes', {})
+                st.write(f"**Total Price Changes Found:** {price_data.get('count', 0)}")
+                
+                if price_data.get('count', 0) > 0:
+                    st.success("✅ Price changes are being detected!")
+                    changes = price_data.get('changes', [])
+                    st.write(f"**First 3 changes:**")
+                    for change in changes[:3]:
+                        st.write(f"  - Item {change.get('item_number')}: ${change.get('old_price')} → ${change.get('new_price')}")
+                else:
+                    st.error("❌ No price changes detected - Let's investigate why...")
+                    
+                    st.markdown("---")
+                    st.markdown("### 🔍 Detailed Investigation")
+                    
+                    # Check table counts
+                    st.markdown("#### 1. Table Counts")
+                    old_tables = st.session_state.old_parsed.get('raw_tables', [])
+                    new_tables = st.session_state.new_parsed.get('raw_tables', [])
+                    st.write(f"- OLD document tables: **{len(old_tables)}**")
+                    st.write(f"- NEW document tables: **{len(new_tables)}**")
+                    
+                    # Check pricing table detection
+                    st.markdown("#### 2. Pricing Table Detection")
+                    st.write("Checking which tables are identified as pricing tables...")
+                    
+                    parser = PAPLParser()
+                    
+                    # Check OLD tables
+                    st.markdown("**OLD Document Tables:**")
+                    for i in range(min(10, len(old_tables))):
+                        table = old_tables[i]
+                        is_pricing, confidence = parser._is_pricing_table(table)
+                        
+                        headers = []
+                        if table.get('data') and len(table['data']) > 0:
+                            headers = table['data'][0][:5]
+                        
+                        icon = "✅" if is_pricing else "❌"
+                        st.markdown(f"**Table {i}:** {icon} {'PRICING' if is_pricing else 'NOT PRICING'} (confidence: {confidence}/100)")
+                        st.text(f"  Headers: {headers}")
+                        
+                        prices = parser._extract_prices_from_table(table)
+                        if prices:
+                            st.text(f"  Found {len(prices)} prices")
+                    
+                    st.markdown("---")
+                    
+                    # Check NEW tables
+                    st.markdown("**NEW Document Tables:**")
+                    for i in range(min(10, len(new_tables))):
+                        table = new_tables[i]
+                        is_pricing, confidence = parser._is_pricing_table(table)
+                        
+                        headers = []
+                        if table.get('data') and len(table['data']) > 0:
+                            headers = table['data'][0][:5]
+                        
+                        icon = "✅" if is_pricing else "❌"
+                        st.markdown(f"**Table {i}:** {icon} {'PRICING' if is_pricing else 'NOT PRICING'} (confidence: {confidence}/100)")
+                        st.text(f"  Headers: {headers}")
+                        
+                        prices = parser._extract_prices_from_table(table)
+                        if prices:
+                            st.text(f"  Found {len(prices)} prices")
+                    
+                    st.markdown("---")
+                    
+                    # Check matching pairs
+                    st.markdown("#### 3. Matching Table Pairs")
+                    st.write("Checking which table pairs are being compared...")
+                    
+                    max_pairs = min(len(old_tables), len(new_tables))
+                    pricing_pairs = []
+                    
+                    for i in range(max_pairs):
+                        old_is_pricing, old_conf = parser._is_pricing_table(old_tables[i])
+                        new_is_pricing, new_conf = parser._is_pricing_table(new_tables[i])
+                        
+                        if old_is_pricing and new_is_pricing:
+                            pricing_pairs.append(i)
+                            st.success(f"✅ Table pair {i}: BOTH are pricing tables (old: {old_conf}, new: {new_conf})")
+                            
+                            changes = parser._compare_table_prices(old_tables[i], new_tables[i])
+                            st.write(f"   → Price changes found: **{len(changes)}**")
+                            
+                            if len(changes) > 0:
+                                st.write(f"   → Sample change: {changes[0]}")
+                    
+                    if len(pricing_pairs) == 0:
+                        st.error("❌ NO table pairs are both identified as pricing tables!")
+                        st.write("**This is why no price changes are detected.**")
+                        
+                        st.markdown("#### 💡 Possible Solutions:")
+                        st.markdown("""
+                        1. **Lower the confidence threshold** (currently 60) in `papl_parser.py`
+                        2. **Add more header keywords** to recognize pricing tables
+                        3. **Check table headers** - do they contain "Price", "Rate", "Cost", "Fee"?
+                        4. **Manually specify** which tables are pricing tables
+                        """)
+                    else:
+                        st.success(f"✅ Found {len(pricing_pairs)} pricing table pairs")
+                        st.write(f"Table indices: {pricing_pairs}")
+                    
+                    st.markdown("---")
+                    
+                    st.markdown("#### 📋 Information Needed")
+                    st.info("""
+                    To fix this, we need to know:
+                    
+                    1. **What headers do your pricing tables have?**
+                       (Look at the headers displayed above)
+                       
+                    2. **What is the confidence score for your pricing tables?**
+                       (Look at the confidence numbers above)
+                       
+                    3. **Do the headers contain words like:** Price, Rate, Cost, Fee, Amount?
+                       
+                    4. **What do prices look like in the cells?**
+                       (e.g., $50.00, 50.00, $50, etc.)
+                    """)
+        # =============================================================================
+        # END DEBUG SECTION
+        # =============================================================================
+        
+                
+                
+                # Show price changes - flat list structure
+                st.markdown("#### 📈 Recent Price Changes")
+                
+                changes_list = pricing.get('changes', [])
+                if changes_list:
+                    # Display first 20 changes
+                    for change in changes_list[:20]:
+                        item_num = change.get('item_number', 'Unknown')
+                        old_price = change.get('old_price', 0)
+                        new_price = change.get('new_price', 0)
+                        diff = change.get('difference', 0)
+                        pct = change.get('percent_change', 0)
+                        
+                        # Format location if available
+                        new_loc = change.get('new_location', {})
+                        loc_str = ""
+                        if new_loc:
+                            loc_str = f" (Table {new_loc.get('table', '?')}, Row {new_loc.get('row', '?')}, Col {new_loc.get('col', '?')})"
+                        
+                        # Display with color
+                        if diff > 0:
+                            st.markdown(f"🔺 **{item_num}**: ${old_price:.2f} → ${new_price:.2f} (+${diff:.2f}, +{pct:.1f}%){loc_str}")
+                        else:
+                            st.markdown(f"🔻 **{item_num}**: ${old_price:.2f} → ${new_price:.2f} (${diff:.2f}, {pct:.1f}%){loc_str}")
+                    
+                    if len(changes_list) > 20:
+                        st.info(f"Showing 20 of {len(changes_list)} total price changes")
+                else:
+                    st.info("No price changes to display")
+                
+                st.markdown("---")
+                
             with st.expander("📋 Business Rule Changes", expanded=True):
-                rules = results['rule_changes']
+                rules = results['business_rule_changes']
                 
                 st.markdown(f"""
                 **Summary:**
-                - Rules Added: {rules['summary']['rules_added']}
-                - Rules Removed: {rules['summary']['rules_removed']}
-                - Rules Modified: {rules['summary']['rules_modified']}
-                - High Priority Changes: {rules['summary']['high_priority_changes']}
+                - Rules Added: {results['summary']['rules_added']}
+                - Rules Removed: {results['summary']['rules_removed']}
+                - Rules Modified: {results['summary']['rules_modified']}
+                - Total Rule Changes: {len(rules)}
                 """)
                 
                 # Show rule changes
-                for detail in rules['details'][:15]:
+                for detail in rules[:15]:
                     loc_display = format_location(detail.get('location', {}))
                     loc_str = f" ({loc_display})" if loc_display else ""
                     
@@ -508,61 +635,92 @@ with tab2:
         
         if compare_guidance:
             with st.expander("📖 Guidance Changes", expanded=True):
-                guidance = results['guidance_changes']
+                guidance = results.get('guidance_changes', [])
                 
                 st.markdown(f"""
                 **Summary:**
-                - Sections Added: {guidance['summary']['sections_added']}
-                - Sections Removed: {guidance['summary']['sections_removed']}
-                - Sections Modified: {guidance['summary']['sections_modified']}
-                - Word Count Change: {guidance['summary']['word_count_change']:+d} words
+                - Guidance Added: {results['summary']['guidance_added']}
+                - Guidance Removed: {results['summary']['guidance_removed']}
+                - Guidance Modified: {results['summary']['guidance_modified']}
+                - Total Changes: {len(guidance)}
                 """)
                 
-                # Show section changes
-                for detail in guidance['details'][:10]:
-                    loc_display = format_location(detail.get('location', {}))
-                    loc_str = f" ({loc_display})" if loc_display else ""
-                    
-                    if detail['type'] == 'section_added':
+                # Show guidance changes
+                for detail in guidance[:10]:
+                    if detail['type'] == 'added':
+                        guidance_item = detail.get('guidance', {})
+                        section = guidance_item.get('section', 'Unknown section')
+                        text = guidance_item.get('text', '')
+                        preview = text[:200] + '...' if len(text) > 200 else text
+                        
                         st.success(f"""
-**➕ Section Added{loc_str}:** {detail['heading']}
+**➕ Guidance Added:** {section}
 
-Paragraphs: {detail['paragraph_count']}
+{preview}
 """)
-                    elif detail['type'] == 'section_removed':
+                    elif detail['type'] == 'removed':
+                        guidance_item = detail.get('guidance', {})
+                        section = guidance_item.get('section', 'Unknown section')
+                        text = guidance_item.get('text', '')
+                        preview = text[:200] + '...' if len(text) > 200 else text
+                        
                         st.error(f"""
-**➖ Section Removed{loc_str}:** {detail['heading']}
+**➖ Guidance Removed:** {section}
 
-Paragraphs: {detail['paragraph_count']}
+{preview}
 """)
-                    elif detail['type'] == 'section_modified':
+                    elif detail['type'] == 'modified':
+                        old_item = detail.get('old_guidance', {})
+                        new_item = detail.get('new_guidance', {})
+                        section = old_item.get('section', new_item.get('section', 'Unknown section'))
+                        similarity = detail.get('similarity', 0)
+                        
                         st.warning(f"""
-**✏️ Section Modified:** {detail['heading']}
+**✏️ Guidance Modified:** {section}
 
-Change: {detail['change_type']} ({detail['old_length']} → {detail['new_length']} words)
+Similarity: {similarity}%
+
+Old: {old_item.get('text', '')[:150]}...
+New: {new_item.get('text', '')[:150]}...
 """)
         
         if compare_tables:
             with st.expander("📋 Table Structure Changes", expanded=True):
-                tables = results['table_structure_changes']
+                tables = results.get('table_changes', {})
                 
                 st.markdown(f"""
                 **Summary:**
-                - Tables Added: {tables['summary']['tables_added']}
-                - Tables Removed: {tables['summary']['tables_removed']}
-                - Structure Changed: {tables['summary']['structure_changed']}
-                - Content Changed: {tables['summary']['content_changed']}
+                - Tables Added: {results['summary']['tables_added']}
+                - Tables Removed: {results['summary']['tables_removed']}
+                - Tables Modified: {results['summary']['tables_modified']}
                 """)
                 
+                # Show tables added
+                tables_added_list = tables.get('tables_added', [])
+                if tables_added_list:
+                    st.info(f"**➕ Tables Added:** {len(tables_added_list)} table(s) (indices: {', '.join(map(str, tables_added_list))})")
+                
+                # Show tables removed
+                tables_removed_list = tables.get('tables_removed', [])
+                if tables_removed_list:
+                    st.info(f"**➖ Tables Removed:** {len(tables_removed_list)} table(s) (indices: {', '.join(map(str, tables_removed_list))})")
+                
                 # Show structural changes
-                for detail in tables['details']:
-                    if detail['type'] == 'table_modified' and detail['structure_changed']:
-                        st.warning(f"""
+                for detail in tables.get('tables_modified', []):
+                    # Unpack dimensions (they are tuples, not dicts!)
+                    old_rows, old_cols = detail['old_dimensions']
+                    new_rows, new_cols = detail['new_dimensions']
+                    
+                    # Calculate differences
+                    row_diff = new_rows - old_rows
+                    col_diff = new_cols - old_cols
+                    
+                    st.warning(f"""
 **⚠️ Table {detail['table_index'] + 1} Structure Changed**
 
-Rows: {detail['old_dimensions']['rows']} → {detail['new_dimensions']['rows']} ({'+' if detail['row_diff'] > 0 else ''}{detail['row_diff']})
+Rows: {old_rows} → {new_rows} ({'+' if row_diff > 0 else ''}{row_diff})
 
-Columns: {detail['old_dimensions']['cols']} → {detail['new_dimensions']['cols']} ({'+' if detail['col_diff'] > 0 else ''}{detail['col_diff']})
+Columns: {old_cols} → {new_cols} ({'+' if col_diff > 0 else ''}{col_diff})
 """)
 
 # ========================================
@@ -607,9 +765,9 @@ with tab3:
             # Export as CSV
             if st.button("📊 Export as CSV", use_container_width=True):
                 pricing_data = []
-                for detail in st.session_state.comparison_results['pricing_changes']['details']:
+                for detail in st.session_state.comparison_results['price_changes']['changes']:
                     if detail['type'] == 'table_modified' and 'changes' in detail:
-                        for price_change in detail['changes'].get('prices_changed', []):
+                        for price_change in detail['changes'].get('price_changes', {}).get('changes', []):
                             pricing_data.append(price_change)
                 
                 if pricing_data:
@@ -618,7 +776,7 @@ with tab3:
                     st.download_button(
                         label="Download CSV",
                         data=csv,
-                        file_name=f"pricing_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        file_name=f"price_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv"
                     )
                 else:
@@ -635,26 +793,26 @@ with tab3:
 ## Summary
 
 ### Pricing Changes
-- Tables Modified: {results['pricing_changes']['summary']['tables_modified']}
-- Items Added: {results['pricing_changes']['summary']['items_added']}
-- Items Removed: {results['pricing_changes']['summary']['items_removed']}
-- Prices Changed: {results['pricing_changes']['summary']['prices_changed']}
+- Tables Modified: {results['summary']['tables_modified']}
+- Tables Added: {results['summary']['tables_added']}
+- Tables Removed: {results['summary']['tables_removed']}
+- Prices Changed: {results['price_changes']['count']}
 
 ### Business Rules
-- Rules Added: {results['rule_changes']['summary']['rules_added']}
-- Rules Removed: {results['rule_changes']['summary']['rules_removed']}
-- Rules Modified: {results['rule_changes']['summary']['rules_modified']}
-- High Priority Changes: {results['rule_changes']['summary']['high_priority_changes']}
-
-### Guidance
-- Sections Added: {results['guidance_changes']['summary']['sections_added']}
-- Sections Removed: {results['guidance_changes']['summary']['sections_removed']}
-- Sections Modified: {results['guidance_changes']['summary']['sections_modified']}
-- Word Count Change: {results['guidance_changes']['summary']['word_count_change']} words
+- Rules Added: {results['summary']['rules_added']}
+- Rules Removed: {results['summary']['rules_removed']}
+- Rules Added: {results['summary']['rules_added']}
+- Rules Removed: {results['summary']['rules_removed']}
+- Rules Modified: {results['summary']['rules_modified']}
+- Total Rule Changes: {results['summary']['total_rule_changes']}
+- Sections Added: {results['summary']['sections_added']}
+- Sections Removed: {results['summary']['sections_removed']}
+- Sections Modified: {results['summary']['sections_modified']}
+- Guidance Changes: {results['summary']['total_guidance_changes']} total
 
 ### Tables
-- Structure Changed: {results['table_structure_changes']['summary']['structure_changed']}
-- Content Changed: {results['table_structure_changes']['summary']['content_changed']}
+- Tables Added: {results['summary']['tables_added']}
+- Tables Removed: {results['summary']['tables_removed']}
 
 ---
 
