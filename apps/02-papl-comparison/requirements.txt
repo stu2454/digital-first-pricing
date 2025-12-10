@@ -8,3 +8,6 @@ fuzzywuzzy
 python-Levenshtein
 Pillow
 requests
+pdfplumber
+matplotlib
+

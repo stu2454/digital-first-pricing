@@ -33,6 +33,16 @@ COPY apps/02-papl-comparison /app
 COPY shared /app/shared
 
 # ---------------------------------------------------------
+# 5.1. install LibreOffice for PDF to DOCX conversion
+# ---------------------------------------------------------
+
+RUN apt-get update && apt-get install -y \
+    libreoffice \
+    libreoffice-writer \
+    libreoffice-calc \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------
 # 6. Install Python Dependencies
 # ---------------------------------------------------------
 
@@ -51,6 +61,8 @@ RUN pip install -r /app/shared/requirements.txt
 ENV STREAMLIT_SERVER_HEADLESS=true
 ENV STREAMLIT_SERVER_PORT=8501
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+
 
 # ---------------------------------------------------------
 # 8. Start Application
